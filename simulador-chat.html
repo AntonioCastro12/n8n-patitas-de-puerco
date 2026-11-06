@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Simulador WhatsApp - El Puerquito Choche 🐷</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background: #0b141a;
+      margin: 0;
+      padding: 20px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      color: #e9edef;
+    }
+    .chat-container {
+      background: #111b21;
+      width: 100%;
+      max-width: 520px;
+      border-radius: 14px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      border: 1px solid #222e35;
+    }
+    .header {
+      background: #202c33;
+      padding: 12px 16px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      border-bottom: 1px solid #2a3942;
+    }
+    .avatar {
+      font-size: 28px;
+      background: #681C1C;
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .header-info h3 {
+      margin: 0;
+      font-size: 15px;
+      color: #e9edef;
+    }
+    .header-info p {
+      margin: 2px 0 0;
+      font-size: 12px;
+      color: #00a884;
+    }
+    .links-bar {
+      background: #182229;
+      padding: 8px 14px;
+      font-size: 12px;
+      display: flex;
+      justify-content: space-between;
+      border-bottom: 1px solid #222e35;
+    }
+    .links-bar a {
+      color: #25d366;
+      text-decoration: none;
+      font-weight: 500;
+    }
+    .links-bar a:hover {
+      text-decoration: underline;
+    }
+    .messages-area {
+      background: #0b141a url('https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png');
+      background-repeat: repeat;
+      background-size: 360px;
+      flex: 1;
+      height: 400px;
+      overflow-y: auto;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .msg {
+      max-width: 82%;
+      padding: 9px 12px;
+      border-radius: 8px;
+      font-size: 14px;
+      line-height: 1.45;
+      position: relative;
+      word-break: break-word;
+      white-space: pre-wrap;
+    }
+    .msg-bot {
+      background: #202c33;
+      color: #e9edef;
+      align-self: flex-start;
+      border-top-left-radius: 2px;
+    }
+    .msg-user {
+      background: #005c4b;
+      color: #e9edef;
+      align-self: flex-end;
+      border-top-right-radius: 2px;
+    }
+    .msg-meta {
+      font-size: 10px;
+      color: #8696a0;
+      text-align: right;
+      margin-top: 4px;
+    }
+    .badge-pedido {
+      display: inline-block;
+      background: #00a884;
+      color: #111b21;
+      padding: 2px 8px;
+      border-radius: 10px;
+      font-size: 11px;
+      font-weight: bold;
+      margin-top: 6px;
+    }
+    .quick-chips {
+      background: #111b21;
+      padding: 8px 12px;
+      display: flex;
+      gap: 6px;
+      overflow-x: auto;
+      border-top: 1px solid #222e35;
+    }
+    .chip {
+      background: #202c33;
+      color: #aebac1;
+      border: 1px solid #2a3942;
+      padding: 6px 10px;
+      border-radius: 14px;
+      font-size: 12px;
+      white-space: nowrap;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .chip:hover {
+      background: #2a3942;
+      color: #fff;
+    }
+    .inputs-area {
+      background: #202c33;
+      padding: 10px 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .user-config {
+      display: flex;
+      gap: 8px;
+    }
+    .user-config input {
+      background: #111b21;
+      border: 1px solid #2a3942;
+      color: #e9edef;
+      padding: 6px 10px;
+      border-radius: 6px;
+      font-size: 12px;
+      flex: 1;
+    }
+    .send-box {
+      display: flex;
+      gap: 8px;
+    }
+    .send-box input {
+      background: #2a3942;
+      border: none;
+      color: #e9edef;
+      padding: 11px 14px;
+      border-radius: 8px;
+      font-size: 14px;
+      flex: 1;
+    }
+    .send-box input:focus {
+      outline: none;
+      background: #323f47;
+    }
+    .send-btn {
+      background: #00a884;
+      color: #111b21;
+      border: none;
+      border-radius: 8px;
+      padding: 0 18px;
+      font-size: 16px;
+      font-weight: bold;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.2s;
+    }
+    .send-btn:hover {
+      background: #02906f;
+    }
+    .typing {
+      font-style: italic;
+      color: #8696a0;
+      font-size: 13px;
+      padding: 6px 12px;
+    }
+    .status-toast {
+      padding: 6px 12px;
+      font-size: 12px;
+      text-align: center;
+      background: #182229;
+      color: #8696a0;
+      border-top: 1px solid #222e35;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="chat-container">
+    <div class="header">
+      <div class="avatar">🐷</div>
+      <div class="header-info">
+        <h3>El Puerquito Choche 🐷🍽️</h3>
+        <p>Patitas de Puerco Doña Imelda • En línea</p>
+      </div>
+    </div>
+
+    <div class="links-bar">
+      <span>📊 <a href="https://docs.google.com/spreadsheets/d/1L_RZBWUpsB8bMt9Ij-MavigEEN5BifnLv8fWIm0tzKc/edit#gid=0" target="_blank">Ver Google Sheets en vivo</a></span>
+      <span>🌐 <a href="https://tarjeta-patitas-puerco.netlify.app/" target="_blank">Tarjeta Menú</a></span>
+    </div>
+
+    <div class="messages-area" id="messagesArea">
+      <div class="msg msg-bot">
+¡Oinc oinc! 🐷 ¡Hola! Qué gusto saludarte. Yo soy *El Puerquito Choche* 🐷🍽️, el parrillero estrella de *Patitas de Puerco Doña Imelda*.
+
+Nuestras patitas y botanas en vinagre casero son para chuparse los dedos. Puedes consultar nuestro menú aquí:
+https://tarjeta-patitas-puerco.netlify.app/
+
+¿Qué se te antoja ordenar hoy? 🐷🌶️🍋
+        <div class="msg-meta">12:00 p.m.</div>
+      </div>
+    </div>
+
+    <div class="quick-chips">
+      <div class="chip" onclick="quickSend('Quiero una orden entera de patitas en vinagre para recoger')">🛍️ Orden entera para recoger</div>
+      <div class="chip" onclick="quickSend('Quiero 2 tostadas dobles de cueritos y ceviche a domicilio en Col. Los Reyes, calle Hidalgo #45')">🛵 Tostadas a domicilio</div>
+      <div class="chip" onclick="quickSend('Quiero un contenedor grande con pata picada, oreja y cueritos')">🥣 Contenedor grande</div>
+      <div class="chip" onclick="quickSend('¿Qué precio tienen las patitas y qué horario tienen?')">💰 Precios y Horario</div>
+    </div>
+
+    <div class="inputs-area">
+      <div class="user-config">
+        <input type="text" id="nombreCliente" value="Caro Valadez" placeholder="Tu nombre">
+        <input type="text" id="telefonoCliente" value="5214624921594" placeholder="Teléfono WhatsApp">
+      </div>
+      <div class="send-box">
+        <input type="text" id="mensajeInput" placeholder="Escribe tu mensaje o pedido aquí..." onkeypress="if(event.key==='Enter') enviarMensaje()">
+        <button class="send-btn" id="btnEnviar" onclick="enviarMensaje()">➤</button>
+      </div>
+    </div>
+
+    <div class="status-toast" id="statusToast">
+      🟢 Escribe en la casilla y El Puerquito Choche te responderá aquí en vivo.
+    </div>
+  </div>
+
+  <script>
+    function horaActual() {
+      const d = new Date();
+      return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    }
+
+    function addMessage(text, isUser = false, hayPedido = false) {
+      const area = document.getElementById('messagesArea');
+      const div = document.createElement('div');
+      div.className = 'msg ' + (isUser ? 'msg-user' : 'msg-bot');
+      div.innerText = text;
+
+      if (hayPedido) {
+        const badge = document.createElement('div');
+        badge.className = 'badge-pedido';
+        badge.innerText = '✅ Comanda enviada a Google Sheets';
+        div.appendChild(badge);
+      }
+
+      const meta = document.createElement('div');
+      meta.className = 'msg-meta';
+      meta.innerText = horaActual();
+      div.appendChild(meta);
+
+      area.appendChild(div);
+      area.scrollTop = area.scrollHeight;
+    }
+
+    function quickSend(txt) {
+      document.getElementById('mensajeInput').value = txt;
+      enviarMensaje();
+    }
+
+    async function enviarMensaje() {
+      const input = document.getElementById('mensajeInput');
+      const mensaje = input.value.trim();
+      const nombre = document.getElementById('nombreCliente').value.trim() || 'Cliente';
+      const telefono = document.getElementById('telefonoCliente').value.trim() || '5214624921594';
+      const toast = document.getElementById('statusToast');
+      const btn = document.getElementById('btnEnviar');
+
+      if (!mensaje) return;
+
+      addMessage(mensaje, true);
+      input.value = '';
+      input.disabled = true;
+      btn.disabled = true;
+      toast.innerText = '🐷 El Puerquito Choche está pensando su respuesta...';
+
+      const payload = {
+        event: "message",
+        session: "restaurante_session",
+        payload: {
+          id: "SIM_" + Date.now(),
+          timestamp: Math.floor(Date.now() / 1000),
+          from: telefono + "@c.us",
+          fromMe: false,
+          body: mensaje,
+          _data: { pushName: nombre }
+        }
+      };
+
+      try {
+        const res = await fetch('http://localhost:5679/webhook/recibir-pedido', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+
+        if (res.ok) {
+          const data = await res.json();
+          if (data && data.text) {
+            addMessage(data.text, false, data.hayPedido);
+            toast.innerHTML = data.hayPedido 
+              ? '✅ ¡Pedido registrado en <a href="https://docs.google.com/spreadsheets/d/1L_RZBWUpsB8bMt9Ij-MavigEEN5BifnLv8fWIm0tzKc/edit#gid=0" target="_blank" style="color:#25d366">Google Sheets</a>!' 
+              : '🟢 Conversando con El Puerquito Choche.';
+          } else {
+            toast.innerText = '✅ Mensaje procesado correctamente.';
+          }
+        } else {
+          toast.innerText = '❌ Error al comunicar con n8n (Status ' + res.status + ')';
+        }
+      } catch (e) {
+        toast.innerText = '❌ Error de red: ' + e.message;
+      } finally {
+        input.disabled = false;
+        btn.disabled = false;
+        input.focus();
+      }
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,705 @@
+{
+  "updatedAt": "2026-11-06T20:41:07.000Z",
+  "createdAt": "2026-11-06T17:46:44.000Z",
+  "id": "PatitasChoche01",
+  "name": "Bot Patitas de Puerco Dona Imelda",
+  "description": null,
+  "active": true,
+  "isArchived": false,
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "recibir-pedido",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.2,
+      "position": [
+        -800,
+        0
+      ],
+      "id": "f1a2b3c4-0001-4000-8000-000000000001",
+      "name": "Webhook Pedido",
+      "webhookId": "ba1c3482-215b-4470-a4bc-6e8eb5010ed1"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 4
+          },
+          "conditions": [
+            {
+              "id": "cond-valid",
+              "leftValue": "={{ $json.body.event === 'call.received' || ($json.body.payload?.fromMe === false && ((($json.body.payload?.body || '').trim().length > 0) || Boolean($json.body.payload?.hasMedia))) }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            },
+            {
+              "id": "cond-no-group",
+              "leftValue": "={{ !($json.body.payload?.from || '').includes('broadcast') && !($json.body.payload?.from || '').includes('@g.us') && !$json.body.payload?.isGroup }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.4,
+      "position": [
+        -576,
+        0
+      ],
+      "id": "f1a2b3c4-0001-4000-8000-000000000002",
+      "name": "Filtro Mensajes"
+    },
+    {
+      "parameters": {
+        "url": "=http://waha_restaurante:3000/api/restaurante_session/chats/{{ encodeURIComponent($json.body.payload.from) }}/messages?limit=8&downloadMedia=true",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Api-Key",
+              "value": "patitas123"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        -368,
+        0
+      ],
+      "id": "f1a2b3c4-0001-4000-8000-000000000003",
+      "name": "Historial WAHA",
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 1000,
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const webhookBody = $('Webhook Pedido').first().json.body || {};\nconst payload = webhookBody.payload || {};\nconst chatId = payload.from || '';\nconst currentMsgId = payload.id || '';\nlet mensajeActual = (payload.body || '').trim();\n\nlet wahaItems = [];\ntry {\n  wahaItems = $('Historial WAHA').all().map(i => i.json).filter(m => m && m.id);\n} catch (e) {}\n\nconst historyMsgs = wahaItems.filter(m => m.body && m.id !== currentMsgId);\nhistoryMsgs.sort((a, b) => (Number(a.timestamp) || 0) - (Number(b.timestamp) || 0));\n\nconst historial = historyMsgs.length > 0\n  ? historyMsgs.slice(-6).map(m => `${m.fromMe ? 'El Puerquito Choche' : 'Cliente'}: ${String(m.body).trim()}`).join('\\n')\n  : 'Sin mensajes previos (primer contacto).';\n\nlet clienteNombre = payload._data?.pushName || '';\nif (!clienteNombre) {\n  const lastClientMsg = [...wahaItems].reverse().find(m => !m.fromMe && m._data?.pushName);\n  clienteNombre = lastClientMsg?._data?.pushName || 'Cliente';\n}\n\nlet rawJid = payload._data?.key?.remoteJidAlt || '';\nif (!rawJid) {\n  const lastAltMsg = [...wahaItems].find(m => m._data?.key?.remoteJidAlt);\n  rawJid = lastAltMsg?._data?.key?.remoteJidAlt || chatId;\n}\nconst telefono = rawJid.replace(/@.*$/, '');\n\nconst now = new Date();\nconst fechaActual = new Intl.DateTimeFormat('es-MX', {\n  timeZone: 'America/Mexico_City',\n  year: 'numeric',\n  month: '2-digit',\n  day: '2-digit',\n  hour: '2-digit',\n  minute: '2-digit',\n  hour12: true\n}).format(now);\n\nreturn [{\n  json: {\n    chatId,\n    telefono,\n    clienteNombre,\n    mensajeActual,\n    historial,\n    fechaActual\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -144,
+        0
+      ],
+      "id": "f1a2b3c4-0001-4000-8000-000000000004",
+      "name": "Preparar Contexto"
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "models/gemini-3.5-flash-lite",
+          "mode": "list"
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "=Eres *El Puerquito Choche* 🐷🍽️, el alegre, cordial y atento asistente virtual de atención a clientes y toma de pedidos de *Patitas de Puerco Doña Imelda*.\nTu objetivo es guiar al cliente paso a paso desde que pide el menú hasta el cierre de su pedido, manteniendo un tono amable, claro, conciso y dicharachero (¡Oinc oinc! 🐷).\n\n---\nINFORMACIÓN DEL RESTAURANTE (PATITAS DE PUERCO DOÑA IMELDA):\n• 🐷 Especialidad: Auténticas patitas de puerco en vinagre casero tradicional, además de ricos cueritos, oreja, ceviche, carne tártara y queso de puerco.\n• 🏠 Sucursal: Rey Alfonso XIII No. 367, Fraccionamiento Los Reyes, Irapuato, Gto.\n• ⏰ Horario: Lunes a Domingo de 2:00 p. m. a 7:00 p. m.\n• 🌐 Menú digital: https://tarjeta-patitas-puerco.netlify.app/\n\nMENÚ Y PRECIOS OFICIALES:\n1. 🐷 Órdenes de Patitas en Vinagre:\n   • Orden entera / completa: $110 MXN\n   • Media orden / 1/2 orden: $70 MXN\n2. 🌮 Tostadas:\n   • Tostada sencilla: $30 MXN (1 ingrediente a elegir)\n   • Tostada doble: $60 MXN (hasta 2 ingredientes combinados)\n3. 🥣 Contenedores para botanear:\n   • Contenedor chico: $80 MXN (de 1 a 3 ingredientes)\n   • Contenedor grande: $110 MXN (de 1 a 4 ingredientes)\n📋 Ingredientes disponibles: Pata picada en vinagre, Oreja en vinagre, Cueritos en vinagre, Queso de puerco, Ceviche, Carne tártara.\n\nCOMPRENSIÓN INTELIGENTE:\n• \"1/2 orden\", \"media\", \"media orden\", \"1/2\" = Media orden de patita ($70 c/u).\n• \"1 orden\", \"orden\", \"entera\" = Orden entera de patita ($110 c/u).\n• Tolera errores ortográficos y expresiones coloquiales (tartara, ceviche, cuerito, pata).\n\n---\nFLUJO ESTRICTO DE CONVERSACIÓN:\n\nPASO 1: Saludo y Menú\n- Cuando el cliente inicie la conversación, salúdalo cordialmente por su nombre y proporciónale el menú completo con el enlace: https://tarjeta-patitas-puerco.netlify.app/\n\nPASO 2: Recepción y Confirmación de Productos\n- Cuando el cliente envíe su pedido, organízalo en una lista limpia con viñetas, cantidades, precios unitarios y el subtotal de los alimentos.\n- Pregúntale explícitamente: \"¿Me confirmas si tu pedido es correcto o deseas hacer algún cambio?\"\n- Si pide correcciones, ajusta la lista y vuelve a pedir confirmación.\n- REGLA: No avances al Paso 3 hasta que el cliente confirme explícitamente que la orden de comida está bien.\n\nPASO 3: Datos de Entrega y Método de Pago\n- Una vez confirmado el pedido de comida, solicita:\n  1. Modalidad de entrega (¿Recoges en sucursal Los Reyes o es envío a domicilio? Si es a domicilio, que indique su dirección completa con referencias).\n  2. Método de pago (Efectivo o transferencia bancaria).\n- Si el cliente elige RECOGER EN SUCURSAL:\n  Confirma que su pedido estará listo en cocina en un tiempo aproximado de 15 a 25 minutos, dale el total a pagar y genera al final:\n  [[ACCION_INTERNA:PEDIDO_RECOGER | {\"tipoEntrega\":\"Para Recoger\",\"direccion\":\"Sucursal Los Reyes\",\"subtotal\":\"$XXX MXN\",\"detalle\":\"• Platillo ($XX)...\",\"pago\":\"Efectivo o Transferencia\"}]]\n\nPASO 4: Pausa para Cotización de Envío (ACCIÓN INTERNA)\n- Cuando el cliente responda con su dirección a domicilio y su método de pago:\n  1. Dile amablemente al cliente:\n     \"¡Gracias! Dame un momento para cotizar tu costo de envío con nuestros repartidores.\"\n  2. DETÉN la conversación con el cliente y activa el disparador interno de administración enviando al final de tu mensaje:\n     [[ACCION_INTERNA:COTIZAR_ENVIO | {\"tipoEntrega\":\"A Domicilio\",\"direccion\":\"{direccion_del_cliente}\",\"subtotal\":\"{subtotal}\",\"detalle\":\"{detalle_platos}\",\"pago\":\"{metodo_pago}\"}]]\n\nPASO 5: Confirmación Final con Envío y Tiempo de Espera\n- El sistema retomará la conversación automáticamente con el cliente en cuanto el administrador responda el costo de envío, desglosando Subtotal + Envío = Total a pagar, e indicando el tiempo de 30 a 50 minutos.\n\nPASO 6: Despedida\n- Cuando el cliente agradezca o confirme de enterado, despídete amablemente y deséale buen provecho.\n\n---\nREGLAS CRÍTICAS:\n- NUNCA inventes el costo de envío; espera siempre el dato del Paso 4.\n- JAMÁS menciones los nombres de los repartidores (Miguel, Edgar) ni el proceso interno de selección al cliente.\n- Haz una sola pregunta o paso a la vez para no saturar al usuario.\n\n---\nNOMBRE DEL CLIENTE: {{ $json.clienteNombre }}\nHISTORIAL RECIENTE:\n{{ $json.historial }}\n\nMENSAJE ACTUAL DEL CLIENTE:\n{{ $json.mensajeActual }}"
+            }
+          ]
+        },
+        "builtInTools": {},
+        "options": {
+          "maxOutputTokens": 2048
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.googleGemini",
+      "typeVersion": 1.2,
+      "position": [
+        48,
+        0
+      ],
+      "id": "f1a2b3c4-0001-4000-8000-000000000005",
+      "name": "Puerquito Choche IA",
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "credentials": {
+        "googlePalmApi": {
+          "id": "PUO2FUL13Zf38h1T",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const ctx = $('Preparar Contexto').first().json;\nconst chatId = ctx.chatId;\nconst parts = $('Puerquito Choche IA').first().json?.content?.parts || [];\nconst rawText = parts\n  .filter(p => !p.thought && typeof p.text === 'string')\n  .map(p => p.text)\n  .join('')\n  .trim();\n\nlet hayPedido = false;\nlet pedidoData = null;\n\nconst accionMatch = rawText.match(/\\[\\[ACCION_INTERNA:(COTIZAR_ENVIO|PEDIDO_RECOGER)\\s*\\|\\s*(\\{[\\s\\S]*?\\})\\]\\]/) ||\n                    rawText.match(/\\[\\[NUEVO_PEDIDO:(\\{[\\s\\S]*?\\})\\]\\]/);\n\nif (accionMatch) {\n  try {\n    const jsonStr = accionMatch[2] || accionMatch[1];\n    const p = JSON.parse(jsonStr);\n    hayPedido = true;\n    pedidoData = {\n      fecha: ctx.fechaActual,\n      cliente: ctx.clienteNombre,\n      telefono: ctx.telefono,\n      chatId: ctx.chatId,\n      tipoEntrega: p.tipoEntrega || 'A Domicilio',\n      detalle: p.detalle || 'Detalle en conversación',\n      subtotal: p.subtotal || p.total || '$0 MXN',\n      total: p.subtotal || p.total || '$0 MXN',\n      pago: p.pago || 'Por definir',\n      direccion: p.direccion || 'No especificada',\n      estatus: p.tipoEntrega === 'Para Recoger' ? 'Listo para recoger (15-25 min)' : 'Pendiente cotización envío'\n    };\n  } catch (e) {}\n}\n\nconst cleanText = rawText\n  .replace(/\\[\\[ACCION_INTERNA:[\\s\\S]*?\\]\\]/g, '')\n  .replace(/\\[\\[NUEVO_PEDIDO:[\\s\\S]*?\\]\\]/g, '')\n  .replace(/\\*\\*(.+?)\\*\\*/g, '*$1*')\n  .trim();\n\nreturn [{\n  json: {\n    chatId,\n    text: cleanText,\n    hayPedido,\n    pedidoData\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        352,
+        0
+      ],
+      "id": "f1a2b3c4-0001-4000-8000-000000000006",
+      "name": "Formatear Respuesta"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://waha_restaurante:3000/api/sendText",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Api-Key",
+              "value": "patitas123"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "chatId",
+              "value": "={{ $('Formatear Respuesta').first().json.chatId }}"
+            },
+            {
+              "name": "text",
+              "value": "={{ $('Formatear Respuesta').first().json.text }}"
+            },
+            {
+              "name": "session",
+              "value": "restaurante_session"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        528,
+        0
+      ],
+      "id": "f1a2b3c4-0001-4000-8000-000000000007",
+      "name": "Enviar WhatsApp",
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 1500,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 4
+          },
+          "conditions": [
+            {
+              "id": "cond-hay-pedido",
+              "leftValue": "={{ $('Formatear Respuesta').first().json.hayPedido }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.4,
+      "position": [
+        752,
+        0
+      ],
+      "id": "f1a2b3c4-0001-4000-8000-000000000008",
+      "name": "Hay Pedido?"
+    },
+    {
+      "parameters": {
+        "authentication": "serviceAccount",
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1L_RZBWUpsB8bMt9Ij-MavigEEN5BifnLv8fWIm0tzKc",
+          "mode": "list",
+          "cachedResultName": "Pedidos - Patitas Doña Imelda",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1L_RZBWUpsB8bMt9Ij-MavigEEN5BifnLv8fWIm0tzKc/edit"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Hoja 1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1L_RZBWUpsB8bMt9Ij-MavigEEN5BifnLv8fWIm0tzKc/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData"
+        },
+        "options": {
+          "handlingExtraData": "insertInNewColumn"
+        }
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        1216,
+        -16
+      ],
+      "id": "f1a2b3c4-0001-4000-8000-000000000009",
+      "name": "Registrar Pedido en Google Sheets",
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "credentials": {
+        "googleApi": {
+          "id": "GvhAo92zAhKkkHGj",
+          "name": "Google Service Account account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const p = $('Formatear Respuesta').first().json.pedidoData || {};\nconst tipo = (p.tipoEntrega || '').toLowerCase();\n\nif (tipo.includes('recoger') || tipo.includes('sucursal')) {\n  return [{\n    json: {\n      \"Fecha y Hora\": p.fecha || '',\n      \"Cliente\": p.cliente || '',\n      \"Teléfono / WhatsApp\": p.telefono || '',\n      \"Tipo de Entrega\": \"Para Recoger en Sucursal Los Reyes\",\n      \"Detalle del Pedido\": p.detalle || '',\n      \"Total Estimado\": p.total || '',\n      \"Forma de Pago\": p.pago || '',\n      \"Dirección / Referencias\": \"Sucursal Los Reyes\",\n      \"Estatus del Pedido\": \"Listo para recoger (15-25 min)\"\n    }\n  }];\n}\n\nreturn [];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1008,
+        -16
+      ],
+      "id": "f1a2b3c4-0001-4000-8000-000000000010",
+      "name": "Preparar Fila Sheet"
+    },
+    {
+      "parameters": {
+        "jsCode": "const fs = require('fs');\nconst ctx = $('Preparar Contexto').first().json;\nconst res = $('Formatear Respuesta').first().json;\nconst p = res.pedidoData || {};\n\nconst rawTotal = (p.total || p.subtotal || '0').replace(/[^0-9]/g, '');\nconst totalComida = parseInt(rawTotal || '0', 10);\n\nconst tipoEntrega = p.tipoEntrega || 'A Domicilio';\nconst esDomicilio = !tipoEntrega.toLowerCase().includes('recoger');\n\nconst pedidoObj = {\n  cliente: p.cliente || ctx.clienteNombre,\n  telefono: ctx.telefono,\n  chatId: ctx.chatId,\n  tipoEntrega: tipoEntrega,\n  direccion: p.direccion || 'Dirección en conversación',\n  detalle: p.detalle || 'Detalle en conversación',\n  totalComida: totalComida,\n  totalStr: p.total || ('$' + totalComida + ' MXN'),\n  fecha: p.fecha || ctx.fechaActual,\n  pago: p.pago || 'Efectivo',\n  estado: 'pendiente_seleccion_repartidor'\n};\n\ntry {\n  fs.writeFileSync('/home/node/.n8n/ultimo_pedido.json', JSON.stringify(pedidoObj, null, 2));\n} catch (e) {}\n\nlet mensajeAdmin = '';\nif (esDomicilio) {\n  mensajeAdmin = \"🛵 *NUEVA COTIZACIÓN DE ENVÍO - DOÑA IMELDA* 🐷\\n\\n\" +\n    \"👤 *Cliente:* \" + pedidoObj.cliente + \"\\n\" +\n    \"📱 *Teléfono:* +\" + pedidoObj.telefono + \"\\n\" +\n    \"📍 *Dirección:* \" + pedidoObj.direccion + \"\\n\\n\" +\n    \"📋 *Comanda:*\\n\" + pedidoObj.detalle + \"\\n\\n\" +\n    \"💵 *Subtotal Comida:* \" + pedidoObj.totalStr + \"\\n\" +\n    \"💳 *Método de Pago:* \" + pedidoObj.pago + \"\\n\\n\" +\n    \"👉 *¿A QUIÉN SE LO ENVIAMOS A COTIZAR?*\\n\\n\" +\n    \"• *1* 👉 Enviar a *Miguel* (+52 1 462 492 1594)\\n\" +\n    \"• *2* 👉 Enviar a *Edgar* (+52 1 462 368 8190)\\n\" +\n    \"• *3 [costo]* 👉 Ingresar costo *Manual* (ej: *3 35* o *35*)\";\n} else {\n  mensajeAdmin = \"🔔 *NUEVO PEDIDO PARA RECOGER - DOÑA IMELDA* 🐷\\n\\n\" +\n    \"👤 *Cliente:* \" + pedidoObj.cliente + \"\\n\" +\n    \"📱 *Teléfono:* +\" + pedidoObj.telefono + \"\\n\\n\" +\n    \"📋 *Comanda:*\\n\" + pedidoObj.detalle + \"\\n\\n\" +\n    \"💵 *Total:* \" + pedidoObj.totalStr + \"\\n\" +\n    \"💳 *Pago:* \" + pedidoObj.pago + \"\\n\" +\n    \"🏪 *Entrega:* En sucursal Los Reyes (15-25 min)\\n\" +\n    \"✅ _Registrado automáticamente en Google Sheets._\";\n}\n\n// Se envía la alerta al administrador (Antonio en 4621472372)\nreturn [{\n  json: {\n    adminChatId: \"5214621472372@c.us\",\n    mensajeAdmin\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        850,
+        -120
+      ],
+      "id": "f1a2b3c4-0001-4000-8000-000000000021",
+      "name": "Guardar y Preparar Alerta Admin"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://waha_restaurante:3000/api/sendText",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Api-Key",
+              "value": "patitas123"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{\n  JSON.stringify({\n    session: \"restaurante_session\",\n    chatId: $('Guardar y Preparar Alerta Admin').first().json.adminChatId,\n    text: $('Guardar y Preparar Alerta Admin').first().json.mensajeAdmin\n  })\n}}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        1050,
+        -120
+      ],
+      "id": "f1a2b3c4-0001-4000-8000-000000000022",
+      "name": "Enviar Alerta WhatsApp Admin",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const fs = require('fs');\nconst body = $json.body || {};\nconst payload = body.payload || {};\nconst text = (payload.body || '').trim().toLowerCase();\n\nconst NUM_MIGUEL = \"5214624921594@c.us\"; // WhatsApp oficial de Miguel\nconst NUM_EDGAR  = \"5214623688190@c.us\"; // WhatsApp oficial de Edgar\nconst NUM_ADMIN  = \"5214621472372@c.us\"; // WhatsApp de Antonio (Admin)\n\nlet pedido = null;\ntry {\n  if (fs.existsSync('/home/node/.n8n/ultimo_pedido.json')) {\n    pedido = JSON.parse(fs.readFileSync('/home/node/.n8n/ultimo_pedido.json', 'utf8'));\n  }\n} catch (e) {}\n\nif (!pedido) {\n  return [];\n}\n\nasync function sendWA(chatId, msg) {\n  if (!chatId || !msg || typeof msg !== 'string' || msg.trim().length === 0) return;\n  try {\n    await fetch('http://waha_restaurante:3000/api/sendText', {\n      method: 'POST',\n      headers: {\n        'X-Api-Key': 'patitas123',\n        'Content-Type': 'application/json'\n      },\n      body: JSON.stringify({\n        session: 'restaurante_session',\n        chatId: chatId,\n        text: msg.trim()\n      })\n    });\n  } catch (err) {}\n}\n\n// CASO A: El repartidor (Miguel o Edgar) o Admin responde con el costo del flete (ej: \"90\", \"$90\", \"45\", \"35\")\nconst numOnlyMatch = text.match(/^\\$?(\\d{2,3})$/);\nif (pedido.estado === 'esperando_cotizacion_repartidor' && numOnlyMatch) {\n  const costo = parseInt(numOnlyMatch[1], 10);\n  const repartidor = pedido.repartidor || 'Miguel';\n  const totalFinal = (pedido.totalComida || 0) + costo;\n\n  // PASO 5: Confirmación Final al Cliente (REGLA CRÍTICA: Jamás mencionar repartidores al cliente)\n  const msgCliente = \"¡Oinc oinc! 🐷 ¡Muchas gracias por tu espera, *\" + pedido.cliente + \"*!\\n\\n\" +\n    \"Ya tenemos la cotización de tu envío. Aquí tienes tu resumen final:\\n\\n\" +\n    \"📋 *Resumen Final:*\\n\" +\n    \"• Subtotal de alimentos: *\" + pedido.totalStr + \"*\\n\" +\n    \"• Costo de envío: *$\" + costo + \" MXN*\\n\" +\n    \"👉 *Total a pagar en efectivo: $\" + totalFinal + \" MXN*\\n\\n\" +\n    \"⏱️ Tu pedido quedará listo y llegará a tu domicilio en un tiempo aproximado de *30 a 50 minutos*, dependiendo de la carga de trabajo.\\n\\n\" +\n    \"¡Buen provecho y a chuparse los dedos! 🐷🌶️🍋\";\n\n  await sendWA(pedido.chatId, msgCliente);\n\n  // Avisar al repartidor que su tarifa fue aceptada\n  const msgRep = \"✅ *¡Tarifa de $\" + costo + \" MXN aceptada!* 🛵\\n\\nEl pedido de *\" + pedido.cliente + \"* con entrega en *\" + pedido.direccion + \"* ya está en preparación en cocina.\";\n  const repChat = (repartidor === 'Edgar') ? NUM_EDGAR : NUM_MIGUEL;\n  await sendWA(repChat, msgRep);\n\n  // Confirmar al Administrador\n  const msgAdmin = \"✅ *¡COTIZACIÓN CONFIRMADA!* 🛵\\n\\n\" +\n    \"• Cliente: *\" + pedido.cliente + \"*\\n\" +\n    \"• Repartidor: *\" + repartidor + \"*\\n\" +\n    \"• Costo de envío: *$\" + costo + \" MXN*\\n\" +\n    \"• Total comensal: *$\" + totalFinal + \" MXN*\\n\" +\n    \"• Promesa entrega: *30 a 50 minutos*\\n\" +\n    \"• Notificación enviada al cliente.\\n\" +\n    \"• Registro guardado en Google Sheets.\";\n  await sendWA(NUM_ADMIN, msgAdmin);\n\n  pedido.estado = 'despachado';\n  pedido.costoEnvio = costo;\n  pedido.repartidor = repartidor;\n  pedido.totalFinal = totalFinal;\n  fs.writeFileSync('/home/node/.n8n/ultimo_pedido.json', JSON.stringify(pedido, null, 2));\n\n  return [{\n    json: {\n      filaSheet: {\n        \"Fecha y Hora\": pedido.fecha,\n        \"Cliente\": pedido.cliente,\n        \"Teléfono / WhatsApp\": \"+\" + pedido.telefono + \" (https://wa.me/\" + pedido.telefono + \")\",\n        \"Tipo de Entrega\": \"A Domicilio (\" + repartidor + \" - Envío: $\" + costo + \" MXN)\",\n        \"Detalle del Pedido\": pedido.detalle + \"\\n• Costo de envío con \" + repartidor + \" ($\" + costo + \" MXN)\",\n        \"Total Estimado\": \"$\" + totalFinal + \" MXN\",\n        \"Forma de Pago\": pedido.pago || \"Efectivo\",\n        \"Dirección / Referencias\": pedido.direccion,\n        \"Estatus del Pedido\": \"En preparación (Entrega 30-50 min)\"\n      }\n    }\n  }];\n}\n\n// CASO B: El Administrador presiona \"1\" (MIGUEL) -> Se le envía dirección y teléfono a Miguel\nif (/^(1|miguel|migue|migel)$/i.test(text)) {\n  pedido.estado = 'esperando_cotizacion_repartidor';\n  pedido.repartidor = 'Miguel';\n  fs.writeFileSync('/home/node/.n8n/ultimo_pedido.json', JSON.stringify(pedido, null, 2));\n\n  const msgMiguel = \"🛵 *NUEVO VIAJE PARA COTIZAR - PATITAS DOÑA IMELDA* 🐷\\n\\n\" +\n    \"Hola Miguel, tenemos un pedido para entrega:\\n\" +\n    \"👤 *Cliente:* \" + pedido.cliente + \"\\n\" +\n    \"📍 *Dirección:* \" + pedido.direccion + \"\\n\" +\n    \"📱 *Teléfono Cliente:* +\" + pedido.telefono + \"\\n\\n\" +\n    \"👉 *¿Cuánto cobras de envío por este viaje?*\\n\" +\n    \"_(Responde directamente con la tarifa, ej: *35*, *45* o *90*)_\";\n  await sendWA(NUM_MIGUEL, msgMiguel);\n\n  const msgAdmin = \"📲 *SOLICITUD ENVIADA A MIGUEL (+52 1 462 492 1594)* 🛵\\n\\n\" +\n    \"Se le envió la dirección y teléfono a Miguel por WhatsApp.\\n\" +\n    \"En cuanto Miguel responda su precio (ej: *90*), el bot cerrará la cuenta automáticamente con el cliente.\";\n  await sendWA(NUM_ADMIN, msgAdmin);\n\n  return [{ json: { filaSheet: {} } }];\n}\n\n// CASO C: El Administrador presiona \"2\" (EDGAR) -> Se le envía dirección y teléfono a Edgar\nif (/^(2|edgar|edgr|edgard)$/i.test(text)) {\n  pedido.estado = 'esperando_cotizacion_repartidor';\n  pedido.repartidor = 'Edgar';\n  fs.writeFileSync('/home/node/.n8n/ultimo_pedido.json', JSON.stringify(pedido, null, 2));\n\n  const msgEdgar = \"🛵 *NUEVO VIAJE PARA COTIZAR - PATITAS DOÑA IMELDA* 🐷\\n\\n\" +\n    \"Hola Edgar, tenemos un pedido para entrega:\\n\" +\n    \"👤 *Cliente:* \" + pedido.cliente + \"\\n\" +\n    \"📍 *Dirección:* \" + pedido.direccion + \"\\n\" +\n    \"📱 *Teléfono Cliente:* +\" + pedido.telefono + \"\\n\\n\" +\n    \"👉 *¿Cuánto cobras de envío por este viaje?*\\n\" +\n    \"_(Responde directamente con la tarifa, ej: *35*, *45* o *90*)_\";\n  await sendWA(NUM_EDGAR, msgEdgar);\n\n  const msgAdmin = \"📲 *SOLICITUD ENVIADA A EDGAR (+52 1 462 368 8190)* 🛵\\n\\n\" +\n    \"Se le envió la dirección y teléfono a Edgar por WhatsApp.\\n\" +\n    \"En cuanto Edgar responda su precio (ej: *90*), el bot cerrará la cuenta automáticamente con el cliente.\";\n  await sendWA(NUM_ADMIN, msgAdmin);\n\n  return [{ json: { filaSheet: {} } }];\n}\n\n// CASO D: El Administrador elige \"3\" o ingresa el precio Manualmente (ej: \"3 35\", \"manual 40\", \"35\")\nconst hasExplicitPrice = text.match(/\\$?(\\d{2,3})\\b/);\nlet repartidor = pedido.repartidor || 'Manual';\nif (/\\b(1|miguel|migue|migel)\\b/i.test(text)) repartidor = 'Miguel';\nelse if (/\\b(2|edgar|edgr|edgard)\\b/i.test(text)) repartidor = 'Edgar';\nelse if (/\\b(3|manual|mano)\\b/i.test(text)) repartidor = 'Manual';\n\nconst costo = hasExplicitPrice ? parseInt(hasExplicitPrice[1], 10) : 35;\nconst totalFinal = (pedido.totalComida || 0) + costo;\n\nconst msgCliente = \"¡Oinc oinc! 🐷 ¡Muchas gracias por tu espera, *\" + pedido.cliente + \"*!\\n\\n\" +\n  \"Ya tenemos la cotización de tu envío. Aquí tienes tu resumen final:\\n\\n\" +\n  \"📋 *Resumen Final:*\\n\" +\n  \"• Subtotal de alimentos: *\" + pedido.totalStr + \"*\\n\" +\n  \"• Costo de envío: *$\" + costo + \" MXN*\\n\" +\n  \"👉 *Total a pagar en efectivo: $\" + totalFinal + \" MXN*\\n\\n\" +\n  \"⏱️ Tu pedido quedará listo y llegará a tu domicilio en un tiempo aproximado de *30 a 50 minutos*, dependiendo de la carga de trabajo.\\n\\n\" +\n  \"¡Buen provecho y a chuparse los dedos! 🐷🌶️🍋\";\n\nawait sendWA(pedido.chatId, msgCliente);\n\nconst msgAdmin = \"✅ *¡COTIZACIÓN CONFIRMADA MANUALMENTE!* 🛵\\n\\n\" +\n  \"• Cliente: *\" + pedido.cliente + \"*\\n\" +\n  \"• Repartidor: *\" + repartidor + \"*\\n\" +\n  \"• Costo de envío: *$\" + costo + \" MXN*\\n\" +\n  \"• Total comensal: *$\" + totalFinal + \" MXN*\\n\" +\n  \"• Promesa entrega: *30 a 50 minutos*\\n\" +\n  \"• Notificación enviada al cliente.\\n\" +\n  \"• Registro guardado en Google Sheets.\";\nawait sendWA(NUM_ADMIN, msgAdmin);\n\npedido.estado = 'despachado';\npedido.costoEnvio = costo;\npedido.repartidor = repartidor;\npedido.totalFinal = totalFinal;\nfs.writeFileSync('/home/node/.n8n/ultimo_pedido.json', JSON.stringify(pedido, null, 2));\n\nreturn [{\n  json: {\n    filaSheet: {\n      \"Fecha y Hora\": pedido.fecha,\n      \"Cliente\": pedido.cliente,\n      \"Teléfono / WhatsApp\": \"+\" + pedido.telefono + \" (https://wa.me/\" + pedido.telefono + \")\",\n      \"Tipo de Entrega\": \"A Domicilio (\" + repartidor + \" - Envío: $\" + costo + \" MXN)\",\n      \"Detalle del Pedido\": pedido.detalle + \"\\n• Costo de envío con \" + repartidor + \" ($\" + costo + \" MXN)\",\n      \"Total Estimado\": \"$\" + totalFinal + \" MXN\",\n      \"Forma de Pago\": pedido.pago || \"Efectivo\",\n      \"Dirección / Referencias\": pedido.direccion,\n      \"Estatus del Pedido\": \"En preparación (Entrega 30-50 min)\"\n    }\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -450,
+        250
+      ],
+      "id": "f1a2b3c4-0001-4000-8000-000000000023",
+      "name": "Procesar Despacho Admin"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://waha_restaurante:3000/api/sendText",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Api-Key",
+              "value": "patitas123"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{\n  JSON.stringify({\n    session: \"restaurante_session\",\n    chatId: $('Procesar Despacho Admin').first().json.clienteChatId,\n    text: $('Procesar Despacho Admin').first().json.msgCliente\n  })\n}}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        -220,
+        200
+      ],
+      "id": "f1a2b3c4-0001-4000-8000-000000000024",
+      "name": "Avisar al Cliente Despacho",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://waha_restaurante:3000/api/sendText",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Api-Key",
+              "value": "patitas123"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{\n  JSON.stringify({\n    session: \"restaurante_session\",\n    chatId: $('Procesar Despacho Admin').first().json.adminChatId,\n    text: $('Procesar Despacho Admin').first().json.msgAdmin\n  })\n}}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        -220,
+        320
+      ],
+      "id": "f1a2b3c4-0001-4000-8000-000000000025",
+      "name": "Confirmar a Admin Despacho",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "authentication": "serviceAccount",
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1L_RZBWUpsB8bMt9Ij-MavigEEN5BifnLv8fWIm0tzKc",
+          "mode": "list",
+          "cachedResultName": "Pedidos - Patitas Doña Imelda",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1L_RZBWUpsB8bMt9Ij-MavigEEN5BifnLv8fWIm0tzKc/edit"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Hoja 1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1L_RZBWUpsB8bMt9Ij-MavigEEN5BifnLv8fWIm0tzKc/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData"
+        },
+        "options": {
+          "handlingExtraData": "insertInNewColumn"
+        }
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        0,
+        250
+      ],
+      "id": "f1a2b3c4-0001-4000-8000-000000000026",
+      "name": "Actualizar Sheet Despachado",
+      "onError": "continueRegularOutput",
+      "credentials": {
+        "googleApi": {
+          "id": "GvhAo92zAhKkkHGj",
+          "name": "Google Service Account account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const fila = $('Procesar Despacho Admin').first().json.filaSheet || {};\nif (!fila[\"Cliente\"]) {\n  return [];\n}\nreturn [{ json: fila }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -100,
+        250
+      ],
+      "id": "f1a2b3c4-0001-4000-8000-000000000027",
+      "name": "Preparar Fila Sheet Despacho"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "cond-is-admin-or-repartidor",
+              "leftValue": "={{ (() => {\n  const payload = $json.body?.payload || {};\n  const text = (payload.body || '').trim().toLowerCase();\n  if (!text || text.length === 0) return false;\n\n  const from = payload.from || '';\n  const alt = payload._data?.key?.remoteJidAlt || '';\n  const to = payload.to || '';\n\n  let esperandoRepartidor = false;\n  let repEsperado = '';\n  try {\n    const fs = require('fs');\n    if (fs.existsSync('/home/node/.n8n/ultimo_pedido.json')) {\n      const p = JSON.parse(fs.readFileSync('/home/node/.n8n/ultimo_pedido.json', 'utf8'));\n      if (p.estado === 'esperando_cotizacion_repartidor') {\n        esperandoRepartidor = true;\n        repEsperado = (p.repartidor || '').toLowerCase();\n      }\n    }\n  } catch(e) {}\n\n  // Números registrados:\n  // Admin: 4621472372 o 4623361636\n  // Miguel: 4624921594\n  // Edgar: 4623688190\n  const isFromMiguel = from.includes('4624921594') || alt.includes('4624921594');\n  const isFromEdgar  = from.includes('4623688190') || alt.includes('4623688190');\n  const isFromAdmin  = from.includes('4621472372') || alt.includes('4621472372') ||\n                       from.includes('4623361636') || alt.includes('4623361636') ||\n                       to.includes('4623361636');\n\n  // Si un repartidor responde con el precio (ej: 90, 45, $90):\n  const isPriceNumber = /^\\$?(\\d{2,3})$/.test(text);\n  if (esperandoRepartidor && isPriceNumber) {\n    if (repEsperado === 'miguel' && (isFromMiguel || isFromAdmin)) return true;\n    if (repEsperado === 'edgar'  && (isFromEdgar  || isFromAdmin)) return true;\n    return true; // Cualquier repartidor asignado respondiendo el precio\n  }\n\n  // Comandos de selección del Administrador (1, 2, 3 [costo], miguel, edgar, manual):\n  const isFood = /\\b(orden|media|tostada|patita|pata|cuerito|oreja|queso|ceviche|tartara|t[aá]rtara|men[uú]|buenas?|hola|antojo|kilo|para llevar|recoger|domicilio|precio|cu[aá]nto|calle|colonia|efectivo|transferencia)\\b/i.test(text);\n  const isDispatch = /^ *(1|2|3|miguel|migue|migel|edgar|edgr|edgard|manual|mano|\\$?\\d{2,3})( *\\$?\\d{2,3}| *(miguel|migue|migel|edgar|edgr|edgard|manual|mano))? *$/i.test(text);\n\n  return (isFromAdmin || isFromMiguel || isFromEdgar) && !isFood && isDispatch;\n})() }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -680,
+        0
+      ],
+      "id": "f1a2b3c4-0001-4000-8000-000000000020",
+      "name": "Es Comando Admin?"
+    }
+  ],
+  "connections": {
+    "Webhook Pedido": {
+      "main": [
+        [
+          {
+            "node": "Es Comando Admin?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filtro Mensajes": {
+      "main": [
+        [
+          {
+            "node": "Historial WAHA",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Historial WAHA": {
+      "main": [
+        [
+          {
+            "node": "Preparar Contexto",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Preparar Contexto": {
+      "main": [
+        [
+          {
+            "node": "Puerquito Choche IA",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Puerquito Choche IA": {
+      "main": [
+        [
+          {
+            "node": "Formatear Respuesta",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Formatear Respuesta": {
+      "main": [
+        [
+          {
+            "node": "Enviar WhatsApp",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Hay Pedido?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enviar WhatsApp": {
+      "main": [
+        []
+      ]
+    },
+    "Hay Pedido?": {
+      "main": [
+        [
+          {
+            "node": "Preparar Fila Sheet",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Guardar y Preparar Alerta Admin",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Preparar Fila Sheet": {
+      "main": [
+        [
+          {
+            "node": "Registrar Pedido en Google Sheets",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Guardar y Preparar Alerta Admin": {
+      "main": [
+        [
+          {
+            "node": "Enviar Alerta WhatsApp Admin",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Procesar Despacho Admin": {
+      "main": [
+        [
+          {
+            "node": "Preparar Fila Sheet Despacho",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Preparar Fila Sheet Despacho": {
+      "main": [
+        [
+          {
+            "node": "Actualizar Sheet Despachado",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Es Comando Admin?": {
+      "main": [
+        [
+          {
+            "node": "Procesar Despacho Admin",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Filtro Mensajes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "staticData": null,
+  "meta": null,
+  "nodeGroups": [],
+  "pinData": {},
+  "versionId": "adcacead-7e2e-4e4b-8f9a-5f3f0be9d930",
+  "activeVersionId": "adcacead-7e2e-4e4b-8f9a-5f3f0be9d930",
+  "versionCounter": 25,
+  "triggerCount": 1,
+  "sourceWorkflowId": null,
+  "tags": [],
+  "shared": [
+    {
+      "updatedAt": "2026-11-06T17:46:44.847Z",
+      "createdAt": "2026-11-06T17:46:44.847Z",
+      "role": "workflow:owner",
+      "workflowId": "PatitasChoche01",
+      "projectId": "xPkCL3aLegjql8Hf",
+      "project": {
+        "updatedAt": "2026-11-06T16:58:41.804Z",
+        "createdAt": "2026-11-06T16:42:35.907Z",
+        "id": "xPkCL3aLegjql8Hf",
+        "name": "José Antonio Castro Cuevas <antoniojcc786@gmail.com>",
+        "type": "personal",
+        "icon": null,
+        "description": null,
+        "customTelemetryTags": [],
+        "creatorId": "051194f9-4eb9-46c4-91c8-7ced48ead8ea"
+      }
+    }
+  ],
+  "versionMetadata": {
+    "name": null,
+    "description": null
+  }
+}

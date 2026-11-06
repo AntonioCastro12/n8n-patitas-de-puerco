@@ -1,0 +1,7 @@
+# Logs y temporales
+*.log
+tmp/
+temp/
+.sessions/
+check_exec.js
+set_order.js

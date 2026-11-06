@@ -1,0 +1,57 @@
+services:
+  n8n_restaurante:
+    image: docker.io/n8nio/n8n:latest
+    container_name: n8n_patitas
+    restart: unless-stopped
+    ports:
+      - "5679:5678"
+    environment:
+      - N8N_HOST=localhost
+      - N8N_PORT=5678
+      - N8N_PROTOCOL=http
+      - WEBHOOK_URL=http://localhost:5679/
+      - N8N_WEBHOOK_URL=http://localhost:5679/
+      - GENERIC_TIMEZONE=America/Mexico_City
+      - TZ=America/Mexico_City
+      - N8N_DIAGNOSTICS_ENABLED=false
+      - N8N_VERSION_NOTIFICATIONS_ENABLED=false
+      - N8N_COMMUNITY_PACKAGES_ENABLED=false
+      - N8N_TEMPLATES_ENABLED=false
+      - N8N_HIRING_BANNER_ENABLED=false
+      - N8N_METRICS_ENABLED=false
+      - N8N_SECURE_COOKIE=false
+      - NODE_TLS_REJECT_UNAUTHORIZED=0
+      - NODE_FUNCTION_ALLOW_BUILTIN=*
+      - NODE_FUNCTION_ALLOW_EXTERNAL=*
+    volumes:
+      - patitas-puerco_n8n_patitas_data:/home/node/.n8n
+
+  waha_restaurante:
+    image: devlikeapro/waha
+    container_name: waha_patitas
+    restart: unless-stopped
+    ports:
+      - "3001:3000"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    environment:
+      - WAHA_PRINT_QR=False
+      - WAHA_WORKER_ID=waha_patitas
+      - WHATSAPP_API_KEY=patitas123
+      - WAHA_DASHBOARD_USERNAME=admin
+      - WAHA_DASHBOARD_PASSWORD=patitas2026!
+      - WHATSAPP_SWAGGER_USERNAME=admin
+      - WHATSAPP_SWAGGER_PASSWORD=patitas2026!
+      - WHATSAPP_DEFAULT_ENGINE=NOWEB
+      - WHATSAPP_RESTART_ALL_SESSIONS=True
+      - WHATSAPP_START_SESSION=restaurante_session
+      - WHATSAPP_HOOK_URL=http://host.docker.internal:5679/webhook/recibir-pedido
+      - WHATSAPP_HOOK_EVENTS=message.any,call.received
+    volumes:
+      - patitas-puerco_waha_patitas_data:/app/.sessions
+
+volumes:
+  patitas-puerco_n8n_patitas_data:
+    external: true
+  patitas-puerco_waha_patitas_data:
+    external: true
