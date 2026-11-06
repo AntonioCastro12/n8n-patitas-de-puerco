@@ -40,9 +40,7 @@ if (nodeEsAdmin) {
 
   // Números registrados:
   // Admin: 4621472372 o 4623361636
-  // Miguel: 4624921594
   // Edgar: 4623688190
-  const isFromMiguel = from.includes('4624921594') || alt.includes('4624921594');
   const isFromEdgar  = from.includes('4623688190') || alt.includes('4623688190');
   const isFromAdmin  = from.includes('4621472372') || alt.includes('4621472372') ||
                        from.includes('4623361636') || alt.includes('4623361636') ||
@@ -51,7 +49,6 @@ if (nodeEsAdmin) {
   // Si un repartidor responde con el precio (ej: 90, 45, $90):
   const isPriceNumber = /^\\$?(\\d{2,3})$/.test(text);
   if (esperandoRepartidor && isPriceNumber) {
-    if (repEsperado === 'miguel' && (isFromMiguel || isFromAdmin)) return true;
     if (repEsperado === 'edgar'  && (isFromEdgar  || isFromAdmin)) return true;
     return true; // Cualquier repartidor asignado respondiendo el precio
   }
@@ -60,7 +57,7 @@ if (nodeEsAdmin) {
   const isFood = /\\b(orden|media|tostada|patita|pata|cuerito|oreja|queso|ceviche|tartara|t[aá]rtara|men[uú]|buenas?|hola|antojo|kilo|para llevar|recoger|domicilio|precio|cu[aá]nto|calle|colonia|efectivo|transferencia)\\b/i.test(text);
   const isDispatch = /^ *(1|2|3|miguel|migue|migel|edgar|edgr|edgard|manual|mano|\\$?\\d{2,3})( *\\$?\\d{2,3}| *(miguel|migue|migel|edgar|edgr|edgard|manual|mano))? *$/i.test(text);
 
-  return (isFromAdmin || isFromMiguel || isFromEdgar) && !isFood && isDispatch;
+  return (isFromAdmin || isFromEdgar) && !isFood && isDispatch;
 })() }}`,
           rightValue: "",
           operator: {
@@ -117,7 +114,7 @@ if (esDomicilio) {
     "💵 *Subtotal Comida:* " + pedidoObj.totalStr + "\\n" +
     "💳 *Método de Pago:* " + pedidoObj.pago + "\\n\\n" +
     "👉 *¿A QUIÉN SE LO ENVIAMOS A COTIZAR?*\\n\\n" +
-    "• *1* 👉 Enviar a *Miguel* (+52 1 462 492 1594)\\n" +
+    "• *1* 👉 Enviar a *Miguel*\\n" +
     "• *2* 👉 Enviar a *Edgar* (+52 1 462 368 8190)\\n" +
     "• *3 [costo]* 👉 Ingresar costo *Manual* (ej: *3 35* o *35*)";
 } else {
@@ -148,7 +145,6 @@ const body = $json.body || {};
 const payload = body.payload || {};
 const text = (payload.body || '').trim().toLowerCase();
 
-const NUM_MIGUEL = "5214624921594@c.us"; // WhatsApp oficial de Miguel
 const NUM_EDGAR  = "5214623688190@c.us"; // WhatsApp oficial de Edgar
 const NUM_ADMIN  = "5214621472372@c.us"; // WhatsApp de Antonio (Admin)
 
@@ -254,7 +250,7 @@ if (/^(1|miguel|migue|migel)$/i.test(text)) {
     "_(Responde directamente con la tarifa, ej: *35*, *45* o *90*)_";
   await sendWA(NUM_MIGUEL, msgMiguel);
 
-  const msgAdmin = "📲 *SOLICITUD ENVIADA A MIGUEL (+52 1 462 492 1594)* 🛵\\n\\n" +
+  const msgAdmin = "📲 *SOLICITUD ENVIADA A MIGUEL* 🛵\\n\\n" +
     "Se le envió la dirección y teléfono a Miguel por WhatsApp.\\n" +
     "En cuanto Miguel responda su precio (ej: *90*), el bot cerrará la cuenta automáticamente con el cliente.";
   await sendWA(NUM_ADMIN, msgAdmin);

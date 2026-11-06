@@ -7,8 +7,8 @@ Asistente virtual de toma de pedidos y cotización de envíos vía WhatsApp con 
 ## 📱 Números Configurados
 - **Restaurante / Bot Choche:** `+52 1 462 336 1636`
 - **Administrador:** `+52 1 462 147 2372`
-- **Repartidor 1 (Miguel):** `+52 1 462 492 1594`
-- **Repartidor 2 (Edgar):** `+52 1 462 368 8190`
+- **Repartidor (Edgar):** `+52 1 462 368 8190`
+- **Repartidor (Miguel):** Por asignar
 
 ---
 
